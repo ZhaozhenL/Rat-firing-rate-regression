@@ -1,0 +1,706 @@
+---
+title: "Final Project"
+author: ""
+date: "2023-03-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+
+This report provides a statistical analysis of the behavior and neural activity of rats in response to varying stimulus intensities. The data utilized was collected by Steinmetz et al. (2019) and focuses on the spike trains of neurons in the visual cortex. The objective of this study is to develop a predictive model that can forecast the outcome of each trial based on neural activities and stimuli. Specifically, the study addresses two key questions: how do neurons in the visual cortex respond to stimuli presented on the left and right screens, and do left and right stimuli have an additive effect on neural responses? Various statistical methodologies were employed to generate sound hypotheses, and the model with the best predictive performance was selected. The report presents the results of the analysis, including an ANOVA test that compares two models with mean firing rate as response variables, left and right contrast, and session number as independent variables. The report concludes that the model exhibits high specificity but low sensitivity, which implies that the model has a limitation in correctly identifying actual positive cases.
+
+## Introduction
+
+The data used in this project report was collected by Steinmetz et al. (2019) and pertains to the behavior and neuronal activity of rats Cori and Forssmann under varying stimulus intensities. The study involved ten mice and 39 sessions, with each session consisting of several hundred trials of visual stimuli presented on two screens. The mice had to make decisions based on the stimuli, and their neuronal activity was recorded as spike trains.
+
+The main focus of this project was to analyze the spike trains of neurons in the visual cortex in response to stimuli presented on the left and right screens, and to investigate whether the stimuli had additive effects on neural responses. Data from five sessions, Sessions 1 to 5, from two mice, Cori and Forssmann, was analyzed. Each session contained five variables: feedback_type, contrast_left, contrast_right, time, and spks, indicating the feedback type, contrast of the stimuli presented on the left and right screens, time bins for spike trains, and the number of spikes of neurons in the visual cortex.
+
+This report presents the results of the data analysis using the R programming language. The primary objective was to develop a predictive model to accurately predict the firing rate of rats based on the contrast of stimuli presented on the left and right screens. The data was preprocessed to improve its quality, and linear regression was applied to build the model. Alternative models or hypotheses were proposed and approved, such as considering random effects. The model's performance was evaluated by calculating sensitivity and specificity on the first 100 trials in Session 1 and analyzing the rewarding mechanism described in Steinmetz et al. (2019).
+
+In summary, this report provides a comprehensive analysis of the data, answering the primary research questions and providing insights into how neurons in the visual cortex respond to stimuli presented on the left and right screens. Additionally, it demonstrates how this information can be utilized to predict the outcome of the trial. The report presents original analysis based on the data collected by Steinmetz et al. (2019) and contributes to the field of neuroscience.
+
+## Background
+
+In this experiment, the rat was trained to perform a specific task that required identifying one of the two visual stimuli presented on a particular side of the screen. Upon correct identification, the rat was rewarded with a small amount of water, which could be consumed by licking a spout. However, if the rat failed to identify the correct stimulus, it was subjected to a brief timeout period during which it could not receive rewards or perform the task. This penalty mechanism ensured the rat learns the correct identification behavior.
+
+To increase the difficulty of the task, the researchers varied the duration of the stimulus presentation or the contrast of the stimuli. In some trials, the rat was also required to perform an additional action, such as holding down a lever, to receive the reward. The researchers incorporated a complex rewarding mechanism, which adjusted the amount of water reward based on the difficulty of the task and the rat's past performance. If the rat performed well on previous trials, the reward amount would slightly decrease, whereas poor performance would increase the reward amount. This mechanism motivated the rat and sustained its engagement in the task.
+
+If the rat accurately selected the visual stimulus associated with a reward, it would receive a water reward. On the other hand, choosing the wrong stimulus would result in a "timeout" penalty, involving a brief period where the room was darkened, and the rat could not receive any stimuli or rewards. Overall, the reward and penalty mechanisms were carefully designed to encourage correct decision-making behavior and discourage incorrect choices in the rats.
+
+## Analysis
+
+```{r}
+
+
+
+```
+
+#### Descriptive Analysis
+
+```{r ,echo=FALSE, eval=TRUE,results='hide',message=FALSE,warning=FALSE}
+session=list()
+for(i in 1:5){
+  session[[i]]=readRDS(paste('C:/Users/Zhaozhen Luo/Desktop/UCD/2023 winter/STAT207/final project/session',i,'.rds',sep=''))
+  print(session[[i]]$mouse_name)
+  print(session[[i]]$date_exp)
+  
+}
+```
+
+For the data we used in this project, to reduced the dimension, which make data analysis easier, we will set a new variables, mean firing rate. Firing rates are often preferred over raw spike data since they offer a more streamlined representation of neural activity over time, which makes it easier to compare different experimental conditions and identify patterns or trends in the data. Firing rates provide more informative measures than time-based approaches, especially when investigating intricate neural phenomena. Additionally, firing rates are more resistant to noise and measurement errors when using low-density electrode arrays, as they can provide a more reliable estimate of underlying neural activity by averaging over multiple spikes. Statistical modeling and analysis are also more feasible with firing rates than spike data, allowing for more advanced and powerful statistical techniques to be applied to the data, leading to more precise and informative results. The mean firing rate, the average number of spikes a neuron fires per unit time, is preferred over the median firing rate since it considers the overall activity of the neuron over a specific time frame. The mean firing rate can be measured over several trials or multiple neurons, unlike the median firing rate, which only provides information about firing rates at a specific time point or trial, potentially leading to an inaccurate representation of overall firing activity. Moreover, the median firing rate may be less responsive to changes in firing activity compared to the mean firing rate. The mean firing rate is calculate by the equation for each session:
+
+```{=tex}
+\begin{equation}
+\text{Mean Firing Rate} = \frac{\text{Total number of spikes in a given time period}}{\text{Number of neurons} \times \text{Length of time period in seconds}}
+\end{equation}
+```
+```{r ,echo=FALSE, eval=TRUE,message=FALSE,warning=FALSE}
+library(dplyr)
+t = 0.4
+n.trials = numeric(5)
+n.neurons = numeric(5)
+firingrate_list = list()
+
+for (ID in 1:5) {
+  n.trials[ID] = length(session[[ID]]$spks)
+  n.neurons[ID] = dim(session[[ID]]$spks[[1]])[1]
+  firingrate_list[[ID]] = numeric(n.trials[ID])
+  
+  for (i in 1:n.trials[ID]) {
+    firingrate_list[[ID]][i] = sum(session[[ID]]$spks[[i]]) / n.neurons[ID] / t
+  }
+}
+firingrate<-unlist(firingrate_list)
+
+```
+
+```{r ,echo=FALSE,message=FALSE,warning=FALSE}
+
+data_comp <- data.frame(
+  feedback_type = factor(),
+  contrast_right = numeric(),
+  contrast_left = numeric(),
+  mouse_name = factor(),
+  date_exp = factor(),
+  session_number = factor()
+)
+
+num = c(214, 251, 228, 249, 254)
+
+for (i in 1:5) {
+  feedback_type <- as.factor(session[[i]]$feedback_type)
+  contrast_left <- session[[i]]$contrast_left
+  contrast_right <- session[[i]]$contrast_right
+  session_number <- as.factor(rep(i, num[i]))
+  mouse_name <- as.factor(rep(session[[i]]$mouse_name,num[i]))
+  date_exp <- as.factor(rep(session[[i]]$date_exp,num[i]))
+
+
+  data_i <- data.frame(
+    feedback_type = feedback_type,
+    contrast_right = contrast_right,
+    contrast_left = contrast_left,
+    mouse_name = mouse_name,
+    date_exp = date_exp,
+    session_number = session_number
+  )
+  
+  data_comp <- bind_rows(data_comp, data_i)
+}
+data_comp<-cbind(data_comp,firingrate)
+data_list <- split(data_comp, data_comp$session_number)
+data_session_1<-data_comp[data_comp$session_number==1,]
+data_session_2<-data_comp[data_comp$session_number==2,]
+data_session_3<-data_comp[data_comp$session_number==3,]
+data_session_4<-data_comp[data_comp$session_number==4,]
+data_session_5<-data_comp[data_comp$session_number==5,]
+
+```
+
+The Figure 1 indicate that the distribution of contrast levels (left and right) varies across sessions. Notably, for each session's level 0 of right or left contrast, the counts are the highest. From figure 2, the findings from the density plot suggest that the firing rate distributions are quite different across different experimental sessions. The overlap between the density curves indicates that there is a high overlap in the density of mean value of firing rate for ssession 1, session 2, and session3 at different experimental time periods, and also for ssession4 and session5, which further indicates that there is still commonality between experiments on the same mouse at different times. In addition, all density curves had obvious peaks or valleys, which indicated that there was a clear clustering or grouping of firing rates at different experimental periods. The peak for mouse "Cori" was in the range of 3 to 4 of the mean value of firing rate, and the peak of mouse "Forssmann" is in the range of 1 to 2 of the mean value of firing rate. Overall, this graph provides evidence for the variability of the firing rate distribution across experimental periods. From the histogram of firing rate by session plot, we can see that the distribution of firing rates varies across sessions, with session 1, session 2, session 3 having a wider range of firing rates than others. From both the density plot and the histogram by session plot, we can see that the variation between sessions is greater in the mouse "Cori" than in the mouse "Forssmann". This suggests that the mouse "Forssmann" may be more suitable for the experiment because its performance would be more stable and consistent. From the histogram of five sessions' mean firing rate, we can find that the distribution is almost symmetrical and bell-shaped, it suggests that the firing rates are almost normally distributed. But we still can find that the slope of the right side of the bell-shaped is steeper than the left side, and there are outliers in the right tail. Considered with the density plots, the different slopes may be caused by the cluster of different sessions. So, sessions may highly affect our prediction model. Further analysis may be needed to investigate the factors that contribute to this variability.
+
+```{r echo=F,warning=FALSE,message=FALSE}
+num_trial_session1<-nrow(data_session_1)
+num_trial_session2<-nrow(data_session_2)
+num_trials <- numeric(5)
+
+for (i in 1:5) {
+  data_i <- get(paste0("data_session_", i))
+  num_trials[i] <- nrow(data_i)
+}
+
+num_neurons <- numeric(5)
+for (i in 1:5) {
+  num_neurons[i] <- nrow(as.data.frame(session[[i]]$spks))
+}
+
+table1<-as.data.frame(cbind(num_trials,num_neurons))
+row.names(table1)<-c("session 1","session 2","session 3","session 4","session 5")
+knitr::kable(table1,
+             caption = "Table 1: Number of Trials and Neurons")
+```
+
+```{r histRightLeft,echo=FALSE, warning=FALSE,message=FALSE,fig.cap="**Figure 1: Bar plots of the distribution of contrast levels (left and right) for each session** The left plot shows the distribution of contrast right levels by session, with each session displayed in a separate panel. The right plot shows the distribution of contrast left levels by session, with the levels of the contrasts for each session displayed on the x-axis and the counts displayed on the y-axis."}
+library(ggplot2)
+library(gridExtra)
+p1<-ggplot(data_comp, aes(x = as.factor(data_comp$contrast_right), fill = data_comp$session_number)) +
+  geom_bar() +
+  labs(x = "Contrast right level", y = "Count", title = "Distribution of contrast right levels by session") +
+  facet_wrap(~ session_number, ncol = 5) +
+  scale_fill_discrete(name = "Session Number") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 4))
+
+p2<-ggplot(data_comp, aes(x = as.factor(data_comp$contrast_left), fill = data_comp$session_number)) +
+  geom_bar() +
+  labs(x = "Contrast right level", y = "Count", title = "Distribution of contrast left levels by session") +
+  facet_wrap(~ session_number, ncol = 5) +
+  scale_fill_discrete(name = "Session Number") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 4))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r dataPrePlot,echo=FALSE, warning=F,message=FALSE,fig.cap="**Figure 2: Density Plot and Histogram**(1) The top right figure is a density plot that visualizes the firing rate distribution across different experimental sessions. The x-axis represents firing rate, and the y-axis represents the density of the distribution. The plot includes multiple density curves, each representing a different session, which are color-coded in the legend. The density curves overlap in some regions, indicating similarity between the firing rate distributions across different sessions. (2) The top left figure shows histograms of firing rate by session number. The x-axis represents the firing rate of neurons in the visual cortex, and the y-axis represents the frequency of occurrence. The plot has five panels, one for each session, with each panel containing a histogram of firing rates for that session. The histograms are colored by session number. (3) The bottom left figure is a histogram of mean firing rates, where the x-axis represents the mean firing rate of all five sessions and the y-axis shows the frequency of each firing rate."}
+library(ggplot2 )
+library(gridExtra)
+
+p1<-ggplot(data_comp, aes(x = data_comp$firingrate, fill = data_comp$session_number)) +
+  geom_density(alpha = 0.5) +
+  ggtitle("Density Curves by Group") +
+  xlab("Firing Rate") +
+  ylab("Density") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8)) +
+  labs(fill = "Session")
+
+p2<-ggplot(data_comp, aes(x = firingrate, fill = session_number)) +
+  geom_histogram(position = "dodge", alpha = 0.5, bins = 30) +
+  facet_wrap(~ session_number, nrow = 1) +
+  ggtitle("Histograms of Firing Rate by Session") +
+  xlab("Firing Rate") +
+  ylab("Frequency") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8)) +
+  labs(fill = "Session")
+
+p3<-ggplot(data_comp, aes(x = firingrate)) + 
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram of Firing Rates", x = "Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+grid.arrange(p1, p2, p3, ncol = 2)
+```
+
+From the five main effect plots of the right contrast (Figure 3), it shows that there is a clear positive relationship between firing rate and contrast right in these sessions except session1, with higher firing rates associated with higher contrast levels. This effect appears to hold across rat "Forssmann"'s two sessions, as each plot shows a similar pattern. However, for rat "cori", the magnitude of the effect appears to vary somewhat across sessions, with some sessions showing a stronger effect than others. Overall, these plots suggest that the contrast level of the right stimulus has a significant impact on the firing rate of neurons in the visual cortex, and that this effect is inconsistent across multiple experimental sessions. From the five main effect plots of the left contrast (Figure 4), it shows that there isn't a clear positive or negative relationship between firing rate and contrast left in these sessions.
+
+```{r ,message=FALSE,warning=FALSE,echo=FALSE,fig.cap="**Figure 3: Main Effect Plot for Contrast Right** These 5 main effect plots are with the same structure but with different sessions' data. Each plot shows the relationship between mean firing rate and contrast right for a particular session. The x-axis shows the contrast level of the right stimulus, and the y-axis shows the firing rate of the neurons in the visual cortex. The title of each plot specifies the session number and the main effect being examined."}
+library(gplots)
+par(mfrow=c(2,3))
+plotmeans(firingrate~contrast_right,data=data_session_1,xlab="contrast right",ylab=" firing rate", main="session1's right contrast ") 
+plotmeans(firingrate~contrast_right,data=data_session_2,xlab="contrast right",ylab=" firing rate", main="session2's right contrast ") 
+plotmeans(firingrate~contrast_right,data=data_session_3,xlab="contrast right",ylab=" firing rate", main="session3's right contrast ") 
+plotmeans(firingrate~contrast_right,data=data_session_4,xlab="contrast right",ylab=" firing rate", main="session4's right contrast ") 
+plotmeans(firingrate~contrast_right,data=data_session_5,xlab="contrast right",ylab=" firing rate", main="session5's right contrast ") 
+
+```
+
+```{r ,message=FALSE,warning=FALSE,echo=FALSE,fig.cap="**Figure 4: Main Effect Plot for Contrast Left** These 5 main effect plots are with the same structure but with different sessions' data. Each plot shows the relationship between mean firing rate and contrast left for a particular session. The x-axis shows the contrast level of the left stimulus, and the y-axis shows the firing rate of the neurons in the visual cortex. The title of each plot specifies the session number and the main effect being examined."}
+library(gplots)
+par(mfrow=c(2,3))
+plotmeans(firingrate~contrast_left,data=data_session_1,xlab="contrast left",ylab=" firing rate", main="session1's left contrast ") 
+plotmeans(firingrate~contrast_left,data=data_session_2,xlab="contrast left",ylab=" firing rate", main="session2's left contrast ") 
+plotmeans(firingrate~contrast_left,data=data_session_3,xlab="contrast left",ylab=" firing rate", main="session3's left contrast ") 
+plotmeans(firingrate~contrast_left,data=data_session_4,xlab="contrast left",ylab=" firing rate", main="session4's left contrast ") 
+plotmeans(firingrate~contrast_left,data=data_session_5,xlab="contrast left",ylab=" firing rate", main="session5's left contrast ") 
+
+```
+
+#### Inferential analysis
+
+```{r ModelBuilding,echo=FALSE,warning=FALSE,message=FALSE}
+library(lme4)
+library(lmerTest)
+model_comp_add <- lm(firingrate ~ as.factor(contrast_left) + as.factor(contrast_right) + session_number, data=data_comp)
+model_comp_inter <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right) + session_number, data=data_comp)
+
+
+model_comp_inter_random <- lmer(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right) + (1|session_number), data=data_comp)
+model_comp_add_random <- lmer(firingrate ~ as.factor(contrast_left) + as.factor(contrast_right) + (1|session_number), data=data_comp)
+
+
+model_session_1 <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right), data=data_session_1)
+model_session_2 <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right), data=data_session_2)
+model_session_3 <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right), data=data_session_3)
+model_session_4 <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right), data=data_session_4)
+model_session_5 <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right), data=data_session_5)
+
+aov_add_inter<-anova(model_comp_add,model_comp_inter)
+aov_random_inter<-anova(model_comp_inter_random,model_comp_add_random)
+
+
+```
+
+From the interaction plots, we can find that the lines on the interaction plot are not parallel in the plots for whole data, then there's interaction between the factors. However, for session 1 and session 3, there are some parallel lines, so that in these two sessions, interaction may not significant.
+
+```{r Interaction1,echo=FALSE,fig.cap="**Figure 5: Interaction Plots** The figure is six interaction plots, which visualize the relationship between contrast_right, contrast_left, and firingrate variables in the whole dataset with five sessions and five other data frames session1 to session5. The plots apply contrast_right and firingrate variables on the x and y-axes, respectively, and contrast_left is represented by the color of the lines in the plots."}
+library(gplots)
+par(mfrow=c(2,3))
+session1=data_session_1
+session2=data_session_2
+session3=data_session_3
+session4=data_session_4
+session5=data_session_5
+interaction.plot(data_comp$contrast_right,data_comp$contrast_left,data_comp$firingrate,xlab="contrast right",ylab="firing rate", main="five sessions")
+
+interaction.plot(session1$contrast_right,session1$contrast_left,session1$firingrate,xlab="contrast right",ylab="firing rate", main="session1")
+interaction.plot(session2$contrast_right,session2$contrast_left,session2$firingrate,xlab="contrast right",ylab="firing rate", main="session2")
+interaction.plot(session3$contrast_right,session3$contrast_left,session3$firingrate,xlab="contrast right",ylab="firing rate", main="session3")
+interaction.plot(session4$contrast_right,session4$contrast_left,session4$firingrate,xlab="contrast right",ylab="firing rate", main="session4")
+interaction.plot(session5$contrast_right,session5$contrast_left,session5$firingrate,xlab="contrast right",ylab="firing rate", main="session5")
+
+
+```
+
+
+
+```{r Interaction2,echo=FALSE,warning=FALSE,message=FALSE,results='hide'}
+aov_random_inter
+```
+
+To analyze the interaction is affected the model, we will apply hypothesis testing. For this project, we choose the mixed-effect two-way anova model without interaction term with two fixed effect and one random effect. The equation of the project is: $$Y_{ijmk} = \mu_{\cdot\cdot\cdot} + \alpha_i+\beta_j + (\alpha\beta)_{ij}+\tau_m+\epsilon_{ijmk}\quad k=1,\ldots, n_{ijm},\ m=1,...,5\quad j=1,2,3,4\quad i=1,2,3,4$$ where (i) $\sum_{i=1}^4 n_i\alpha_i = 0$,(ii)$\sum_{j=1}^4 n_j\beta_j=0$, (iii) $\sum_{i=1}^4 n_{ij}(\alpha\beta)_{ij} =\sum_{j=1}^4 n_{ij}(\alpha\beta)_{ij} =0, \forall i,j$, (iv) ${\epsilon_{ijmk}\ \sim N(0,\sigma^2)}$, (v) ${\tau_m \sim N(0,\sigma_{\eta}^2)}$ ,(vi) $\epsilon_{ijml} \text{ and } \tau_m \text{ are mutually independent.}$
+
+In this model, $\alpha_i$ represent the effect from the different 4 levels of contrast_right, for $i=1,2,3,4,5$ stands for 0, 0.25, 0.5, 1, these four levels Similarly, the $\beta_j$ represent the effect from the different 4 levels of contrast_left, for $j=1,2,3,4,5$ stands for 0, 0.25, 0.5, 1, these four levels. $\tau_m$ represents the effect of the 5 different sessions on the firing_rate, $m=1,2,3,4,5$ stands for session1 to 5. The outcome $Y_{i,j,m,k}$ represents the $k$th mean firing rate of the trials under $m$th session, $j$th left contrast level and $i$th right contrast level. The mean effect $\mu_{\cdot\cdot\cdot}$ represents the mean firing rate of the data set. The errors$\epsilon_{i,j,m,k}$ capture any unexplained effects on weights.
+
+Then, we get $$
+\alpha_i=\mu_{i\cdot} - \mu_{\cdot \cdot},\ \beta_j=\mu_{\cdot j}-\mu_{\cdot\cdot},\ (\alpha\beta)_{ij} =\mu_{ij}-\mu_{i\cdot}-\mu_{\cdot j}+\mu_{\cdot\cdot}. 
+$$
+
+For testing the necessity of the interaction term, we have the null hypothesis and alternative hypothesis: $$
+H_0: (\alpha\beta)_{ij}=0 \  \forall i, j  \ \ {\rm v.s.} \ \ \ H_1:\  {\rm not \ all \ } (\alpha\beta)_{ij} \ {\rm are \ zero}.
+$$
+
+Then we apply anova() function to two linear regression models with mean firing rate as response variable, left contrast, right contrast, random session number as independent variables, with and without the interaction term of right contrast and left contrast. The output shows that the model with the interaction term is a significantly better fit to the data of whole five sessions than the model without interaction terms. The p-value for the Chi-squared test of the difference between the two models is 0.04112, which is below the conventional threshold for statistical significance of 0.05. Then, we can reject the null hypothesis at 0.05 level, which suggests that there is a significant interaction between the right contrast and left contrast in their effect on the mean value of firing rate, and that this interaction should be included in any statistical model used to analyze the data.So, we will choose the model with the interaction term.
+
+#### Sensitivity analysis
+
+```{r randomEffect,echo=FALSE,warning=FALSE,message=FALSE}
+library(lme4)
+library(lmerTest)
+
+model_comp_inter <- lm(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right) + session_number, data=data_comp)
+model_comp_inter_random <- lmer(firingrate ~ as.factor(contrast_left) * as.factor(contrast_right) + (1|session_number), data=data_comp)
+
+
+aov_random<-anova(model_comp_inter_random,model_comp_inter)
+icc <- VarCorr(model_comp_inter_random)$session_number / (VarCorr(model_comp_inter_random)$session_number + attr(VarCorr(model_comp_inter_random), "sc")^2)
+
+```
+
+```{r RandomResidualSession,echo=FALSE,message=FALSE,warning=FALSE,fig.cap="**Figure 6: Residual Plots for Five Sessions** The figure is five residuals plots for different five session, with linear regression models that mean firing rate as response variables, and right contrast and left contrast are the independent variables."}
+
+library(ggplot2)
+library(gridExtra)
+
+# Create a list of all model sessions
+model_sessions <- list(model_session_1, model_session_2, model_session_3, model_session_4, model_session_5)
+
+# Create an empty list to store plots
+plots <- list()
+
+# Loop through all model sessions
+colors <- rainbow(length(model_sessions))
+for (i in seq_along(model_sessions)) {
+  # Get residuals and fitted values
+  residuals <- resid(model_sessions[[i]])
+  fitted_values <- fitted(model_sessions[[i]])
+  
+  # Create a data frame with the residuals and fitted values
+  df <- data.frame(residuals = residuals, fitted_values = fitted_values)
+  
+  # Create a scatterplot with ggplot2, using a different color for each session
+  p <- ggplot(df, aes(x = fitted_values, y = residuals)) +
+    geom_point(alpha = 0.6, size = 1.5, color = colors[i]) +
+    geom_smooth(method = "lm", se = FALSE, color = "grey",size=0.5) + 
+    theme_classic() +
+    labs(x = "Fitted Values", y = "Residuals") +
+    ggtitle(paste("Session", i)) +
+    xlim(range(df$fitted_values)) +
+    ylim(range(df$residuals)) + 
+         theme(plot.title=element_text(size=10),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+  
+  # Add the plot to the list of plots
+  plots[[i]] <- p
+}
+
+# Combine all plots into one
+grid.arrange(grobs = plots, nrow = 2)
+
+
+```
+
+From the residual plots for five sessions, the points are evenly distributed in the two sides of the 0 lines. According to previous plots and analysis, we find that "session_number" represents a grouping variable, as it indicates which session a given observation belongs to, and the effect of "session_number" on the mean firing rate vary across different sessions which means that the effect of "session_number" is not constant, then it would be appropriate to include session_number as a random effect in the model. Moreover, from the five residuals plots, we can also find that the fitted values' range are quite different among these five session, especially for different rats. Also, for the same rat "Cori", the the range of residuals also make a difference. So for the following model building, we will consider "session_number" as random. To verify, we will apply hypothesis testing. Then we have the null hypothesis and alternative hypothesis:
+
+$$H_0: \sigma^2_\mu=0\quad vs.\quad H_1: \sigma^2_\mu\neq0$$
+
+We apply anova function to compare two models with mean firing rate as response variables, left and right contrast, session number as independent variables, with and without session number as random. The output shows that the model with session number as fixed has three more parameters than the another model. The p-value indicates that the difference in deviance between the two models is significant at a very high level of significance (p \< 0.001). Intraclass correlation (ICC) is about 0.76 which means that the random intercept for session number accounts for 76% of the variance in firing rates across sessions. This suggests that the random intercepts for each session in the model are important for capturing the variability in the data. So we will reject the null hypothesis. Including session number as a random effect in the model would allow us to estimate the variance of the random effect, which captures the variability in the effect of session number on the mean firing rate across different sessions. This can help us to account for any potential confounding effects of session number on the relationship between right and left contrast, and mean firing rate, and can also improve the accuracy of your estimates of the fixed effects.
+
+From the table 2, we get the final fitting results of the model with mean firing rate as the dependent variable, right and left contrast as fixed independent variable. The model also includes a random intercept for session. The table shows the estimated coefficients for each level of the left and right contrasts, as well as their interaction. The "Estimate" column shows the estimated effect size, the "Std. Error" column shows the standard error of the estimate, the "t value" column shows the t-value of the coefficient estimate, and the "Pr(\>\|t\|)" column shows the p-value of the t-test for the null hypothesis that the coefficient is equal to zero. If the p-value is smaller than 0.05 that it means that this term is significant for the model.The findings suggest that there is a significant effect of both left and right contrast on firing rate, with higher contrasts leading to higher firing rates. There is also a significant interaction between left and right contrast, indicating that the effect of one contrast depends on the level of the other contrast. The random effect of session is significant, suggesting that there is variability in firing rates across sessions that cannot be explained by the fixed effects alone. These findings also match the hypothesis testings' conclusion we made above. From the Figure 5 and Figure 6, the residual plot shows that most of the points are evenly distributed in the both sides of the 0 line. Considered with the other two plots, we can conclude that the model meets the assumption that the residuals are almost normally distributed.
+
+```{r finalModel,echo=FALSE}
+
+data_final<-data.frame(right=as.factor(data_comp$contrast_right),left=as.factor(data_comp$contrast_left),session=data_comp$session_number)
+
+model_q1_final <- lmer(firingrate ~ left * right + (1|session), data=data_final)
+
+results_final<-cbind(round((summary(model_q1_final)$coefficients)[,1:4],2),(summary(model_q1_final)$coefficients)[,5])
+colnames(results_final)<-colnames((summary(model_q1_final)$coefficients))
+knitr::kable(results_final,
+             caption = "Table 2: Fitting Results of Model")
+```
+
+```{r finalModelDiagnostics,echo=FALSE,fig.cap="**Figure 7: Residual Plot** This is a diagnostic plots for the model with mean firing rate as the dependent variable, right and left contrast as fixed independent variables, session as random independent variable "}
+
+
+
+p1<-plot(model_q1_final)
+p1
+```
+
+```{r finalModelDiagnostics2,echo=FALSE,,fig.cap="**Figure 8:** (1) The left plot is the distribution of the random effects for the intercept term across all sessions (2)The right plot is a residual QQ-plot of the residuals of the model"}
+par(mfrow = c(1, 2))
+par(mfrow = c(1, 2))
+p2<-qqnorm(ranef(model_q1_final)$session[,"(Intercept)"], 
+       main = "Random effects")
+p3<-qqnorm(resid(model_q1_final), main = "Residuals")
+
+
+```
+
+#### Predictive modeling
+
+```{r ,echo=FALSE,results='hide',warning=FALSE,message=FALSE}
+data_train = data_comp[-c(1:100),]
+data_test = data_comp[1:100,]
+glm(as.factor(feedback_type)~as.factor(contrast_right)+as.factor(contrast_left)+firingrate+as.factor(session_number),data=data_train,family = "binomial")
+pred<-glm(as.factor(feedback_type)~as.factor(contrast_right)+as.factor(contrast_left)+firingrate+as.factor(session_number),data=data_train,family = "binomial")
+
+library(pROC)
+roc<-roc(pred$y,pred$fitted.values)
+roc$auc
+```
+
+
+
+
+
+
+
+
+
+We try to build a logistics model that the model is predicting the probability of a particular type of feedback (coded as -1 or 1) based on several predictor variables, including contrast right, contrast left, mean firing rate, and session number. We apply glm() function with family = "binomial", which indicates that the outcome variable is binary. The fitted outcome equation for the given generalized linear model is:
+
+$$ \log\left(\frac{P(Y=1)}{1-P(Y=1)}\right) = -2.46 - 1.01\cdot\text{contrast_right}{0.25} - 0.93\cdot\text{contrast_right}{0.5} - 0.93\cdot\text{contrast_right}{1} $$ $$ - 0.20\cdot\text{contrast_left}{0.25} - 0.46\cdot\text{contrast_left}{0.5} - 0.27\cdot\text{contrast_left}{1} + 0.97\cdot\text{firingrate} $$ $$ + 0.49\cdot\text{session}{2} + 0.33\cdot\text{session}{3} + 1.88\cdot\text{session}{4} + 2.59\cdot\text{session}{5} $$
+
+where $\text{contrast_right}{0.25}$, $\text{contrast_right}{0.5}$, and $\text{contrast_right}{1}$ denote the contrast levels of the right stimulus, and $\text{contrast_left}{0.25}$, $\text{contrast_left}{0.5}$, and $\text{contrast_left}{1}$ denote the contrast levels of the left stimulus. $\text{firingrate}$ represents the firing rate of the neuron, and $\text{session}{2}$, $\text{session}{3}$, $\text{session}{4}$, and $\text{session}{5}$ represent the session numbers.
+
+The equation models the log-odds of $Y=1$ (where $Y$ is the feedback type, either -1 or 1) as a linear combination of the predictors. The coefficients represent the effect of each predictor on the log-odds of $Y=1$ after controlling for the other predictors in the model.
+
+where $p$ represents the probability of the feedback type being 1, and the predictor variables contrast right, contrast left, mean firing rate, and session_number are included in the model. The logit function is defined as $\log\left(\frac{p}{1-p}\right)$, and the coefficients represent the estimated effect sizes of the predictors on the log-odds of the outcome variable.
+
+The AUC is a metric used to evaluate the performance of a binary classifier, where a value of 1 indicates perfect classification and a value of 0.5 indicates random classification. Our model's AUC equals to 0.69 can provide a general indication of how well the model is able to distinguish between the two feedback types which is a value between 0.5 and 1 indicates some level of discrimination between the two classes, with higher values indicating better performance.
+
+To explain this model, we should recall the mechanism of the experiment. The experimental design described above involves a paradigm in which mice are presented with stimuli of different contrasts on their left and right sides. The mice are then trained to make a decision about which side to move towards, based on the contrast values presented. In this paradigm, the type of feedback given to the mice depends on the specific conditions of the task. When the left contrast and right contrast are not equal, the mice are required to choose the side with the larger contrast value. In this scenario, if the mouse moves towards the side with the larger contrast value, a reward is given to reinforce the behavior. Conversely, if the mouse moves towards the side with the smaller contrast value, a penalty is given to discourage the behavior. When the left contrast is equal to the right contrast and both are zero, the mice are required to make a choice within a certain time frame. If the mouse makes a decision within 1.5 seconds, a reward is given as a reinforcement. If the mouse does not make a decision within the given time frame, a penalty is given to discourage hesitation.Finally, when the left contrast is equal to the right contrast and not zero, the mice are rewarded for moving, regardless of the side they choose. The reward is designed to encourage exploration and prevent the mice from becoming biased towards one side.Overall, these feedback mechanisms are intended to promote learning in the mice and encourage them to make accurate decisions in the task. By reinforcing the correct behavior and penalizing incorrect behavior, the mice are trained to become proficient at discriminating between stimuli of different contrasts, which can have implications for understanding perception and decision-making in both mice and humans.
+
+From Table 3, we find that when both left contrast and right contrast equal to 0, the rat make a right decision than wrong. Except this situation, the rats are more likely to make a decition when the the difference between these two screens is large. From this table, the model's negnative coefficients for most of variables can be explained.
+
+From the plots below, there are more observations for feedback type 1 than feedback type -1 across all sessions. Additionally, correct feedback occurs in high mean firing rate. The the following plot shows that the distribution of firing rate for feedback type -1 has a higher peak and wider spread than that of feedback type 1. This suggests that feedback type -1 may lead to higher variability in firing rate compared to feedback type 1. Additionally, the plot suggests that feedback type -1 may have a narrower range of firing rates compared to feedback type.
+
+``` {r,warning=FALSE,message=FALSE,echo=FALSE,fig.cap="**Figure 9:Threshold for Final Model** This is a graph of the ROC curve with the threshold for the final model indicated. The threshold is the point on the curve that corresponds to the point where sensitivity and specificity are equal. In this case, the threshold is set to 0.5, meaning that any predicted probability above 0.5 is classified as the positive class (feedback type 1) and any predicted probability below 0.5 is classified as the negative class (feedback type -1) "}
+plot(roc,print.thres=T, main="Threshold for Final Model")
+```
+
+```{r CountFeedbackType,warning=FALSE,message=FALSE,echo=FALSE}
+
+library(dplyr)
+
+# Separate the data into two datasets based on feedback_type
+data_comp_pos1 <- filter(data_comp, feedback_type == 1)
+data_comp_neg1 <- filter(data_comp, feedback_type == -1)
+
+
+contrast_counts_pos1 <- data_comp_pos1 %>%
+  filter(mouse_name %in% c("Cori", "Frossman"), 
+         session_number %in% 1:5) %>%
+  group_by(contrast_right, contrast_left) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+contrast_counts_neg1 <- data_comp_neg1 %>%
+  filter(mouse_name %in% c("Cori", "Frossman"), 
+         session_number %in% 1:5) %>%
+  group_by(contrast_right, contrast_left) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+data_feedback<-cbind(contrast_counts_neg1$contrast_right,contrast_counts_neg1$contrast_left,contrast_counts_pos1$count-contrast_counts_neg1$count)
+
+
+data_feedback<-as.data.frame(data_feedback)
+
+df1<-as.data.frame(matrix(c(68, 5, 29, 42, 5, 3, 9, 11, 31, -1, -4, 4, 9, -5, 7, -4), nrow=4, ncol=4, byrow=TRUE))
+colnames(df1)<-c("left contrast 0","left contrast 0.25","left contrast 0.5","left contrast 1")
+rownames(df1)<-c("right contrast 0","right contrast 0.25","right contrast 0.5","right contrast 1")
+
+
+knitr::kable(df1,
+             caption = "Table 3: Sum of the Feedback Type by the Pairs of Left and Right Contrasts")
+```
+
+```{r leftDotSessionFeedback1,echo=FALSE,warning=FALSE,message=FALSE,fig.cap="**Figure 10: Satterplot of Differnt Feedback Type's Firingrate by Left Contrast's Level** This is a grid of 5 scatter plots, each showing the relationship between firing rate and left contrast level for a different session. The data for each session is color-coded by feedback type. The x-axis shows the levels of left contrast (represented as a factor variable), while the y-axis shows firing rate. Each point in the plot represents a trial in which a neuron was recorded. "}
+
+library(ggplot2)
+library(gridExtra)
+
+p1<-ggplot(data_session_1, aes(x = as.factor(contrast_left), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 1") +
+  xlab("Left Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p2<-ggplot(data_session_2, aes(x = as.factor(contrast_left), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 2") +
+  xlab("Left Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p3<-ggplot(data_session_3, aes(x = as.factor(contrast_left), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 3") +
+  xlab("Left Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p4<-ggplot(data_session_4, aes(x = as.factor(contrast_left), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 4") +
+  xlab("Left Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p5<-ggplot(data_session_5, aes(x = as.factor(contrast_left), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 5") +
+  xlab("Left Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
+```
+
+```{r leftDotSessionFeedback,echo=FALSE,warning=FALSE,message=FALSE,fig.cap="**Figure 11: Satterplot of Differnt Feedback Type's Firingrate by Right Contrast's Level** This is a grid of 5 scatter plots, each showing the relationship between firing rate and right contrast level for a different session. The data for each session is color-coded by feedback type. The x-axis shows the levels of right contrast, while the y-axis shows firing rate. Each point in the plot represents a trial in which a neuron was recorded. "}
+
+library(ggplot2)
+library(gridExtra)
+
+p1<-ggplot(data_session_1, aes(x = as.factor(contrast_right), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 1") +
+  xlab("Right Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p2<-ggplot(data_session_2, aes(x = as.factor(contrast_right), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 2") +
+  xlab("Right Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p3<-ggplot(data_session_3, aes(x = as.factor(contrast_right), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 3") +
+  xlab("Right Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p4<-ggplot(data_session_4, aes(x = as.factor(contrast_right), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 4") +
+  xlab("Right Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+
+
+p5<-ggplot(data_session_5, aes(x = as.factor(contrast_right), y = firingrate, color = feedback_type)) +
+  geom_point(alpha = 0.3) +
+  ggtitle("Session 5") +
+  xlab("Right Contrast Level") +
+  ylab("Firing Rate") + 
+  theme(legend.text=element_text(size=5), 
+        legend.title=element_text(size=8),
+        plot.title=element_text(size=12),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8))
+grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
+```
+
+```{r BoxHistPieFeedback,echo=FALSE,message=FALSE,warning=FALSE,fig.cap="**Figure 12** The code generates a figure that combines three different types of plots to explore the relationship between the firing rate of neurons and the feedback type received in different experimental sessions.The first plot (A) is a boxplot that shows the distribution of firing rates for the two different feedback types (-1 and 1) in all experimental sessions. The x-axis shows the feedback type, and the y-axis shows the firing rate. The second plot is a bar plot (B) that displays the mean firing rate for each feedback type and experimental session. The x-axis shows the session number, and the y-axis shows the mean firing rate. The bars are colored by feedback type (-1 and 1).The third plot is a pie chart (C) that shows the distribution of feedback types in the entire dataset. The pie chart is also colored by feedback type (-1 and 1)."}
+
+# Load required packages
+library(ggplot2)
+library(cowplot)
+
+p1<-ggplot(data_comp, aes(x = feedback_type, y = firingrate)) +
+  geom_boxplot() +
+  xlab("Feedback Type") +
+  ylab("Firing Rate")
+
+data_grouped <- data_comp %>% 
+  group_by(feedback_type, session_number) %>% 
+  summarise(mean_firingrate = mean(firingrate))
+
+# Create bar plot
+bar_plot <- ggplot(data_grouped, aes(x = session_number, y = mean_firingrate, fill = factor(feedback_type))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Session Number", y = "Mean Firing Rate", fill = "Feedback Type") +
+  scale_fill_manual(values = c("coral1", "cyan"), labels = c("-1", "1")) +
+  theme_classic()
+
+# Calculate the number of observations for each feedback type
+feedback_counts <- table(data_comp$feedback_type)
+# Create a data frame with the counts and feedback type labels
+feedback_data <- data.frame(
+  feedback_type = names(feedback_counts),
+  count = as.numeric(feedback_counts)
+)
+# Create pie chart
+pie_chart <- ggplot(feedback_data, aes(x = "", y = count, fill = feedback_type)) +
+  geom_bar(stat = "identity", color = "white") +
+  coord_polar("y", start = 0) +
+  labs(title = "Feedback Type Distribution") +
+  scale_fill_manual(values = c("coral1", "cyan"), labels = c("-1", "1")) +
+  theme_void()
+
+# Combine both plots
+combined_plot <- plot_grid(bar_plot, pie_chart, p1,ncol = 2, align = "h", axis = "tb", labels = c("A", "B","C"))
+
+# Show the combined plot
+combined_plot
+
+
+
+
+
+
+```
+
+```{r ,echo=F,warning=FALSE,message=FALSE,fig.cap="**Figure 13** The left plot is a horizontal bar plot that shows the number of observations (count) for each session number, grouped by feedback type. The x-axis represents the session number, and the y-axis shows the count of observations. The right plot is a density plot that shows the distribution of firing rate for each feedback type. The x-axis represents the firing rate, and the y-axis shows the density. The plot contains two overlaid density curves, one for each feedback type."}
+
+library(ggplot2)
+p1<-ggplot(data = data_comp, aes(data_comp$session_number, ..count..)) + 
+    geom_bar(mapping = aes(fill=feedback_type)) +xlab("session")+
+    coord_flip()
+
+
+p2<-ggplot(data_comp, aes(x = firingrate, fill = feedback_type)) +
+  geom_density(alpha = 0.5) +
+  ggtitle("density of firing_rate by feedback_type") +
+  xlab("firing_rate") +
+  ylab("density")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+To assess the efficacy of the model, it can be observed from Table 4 that among the 26 real -1 values, the model accurately predicted 8 and made incorrect predictions for the remaining 18. Similarly, out of the 84 actual 1 values, the model accurately predicted 66 and made incorrect predictions for the remaining 18. This data can be utilized to determine the sensitivity and specificity of the model. Sensitivity refers to the proportion of actual positive cases that the model correctly identifies, while specificity pertains to the proportion of actual negative cases that the model correctly identifies. In order to evaluate sensitivity, the model's capability to accurately identify the -1 class is of interest. Out of the 26 actual -1 cases, the model correctly identified 8, resulting in a sensitivity value of 0.31 (8/26). For specificity, the model's ability to accurately identify the 1 class is of interest. Out of the 84 actual 1 cases, the model correctly identified 66, resulting in a specificity value of 0.89 (66/84). The model has a high specificity of 0.89, indicating that it is effective at identifying true negatives (actual negatives that are correctly identified as negatives). However, its sensitivity of 0.31 suggests that it is not very effective at identifying true positives (actual positives that are correctly identified as positives). In other words, the model has a tendency to misclassify actual positive cases as negative, which is a drawback of the model.
+
+```{r ,echo=F,warning=FALSE,message=FALSE}
+
+data_train = data_comp[-c(1:100),]
+data_test = data_comp[1:100,]
+fit_train<-glm(as.factor(feedback_type)~as.factor(contrast_right)+as.factor(contrast_left)+firingrate+as.factor(session_number),data=data_train,family = "binomial")
+
+threshold = 0.5
+predicted_values = ifelse(predict(fit_train, newdata = data_test)>threshold,1,0)
+actual_values = data_test$feedback_type
+conf_matrix = table(predicted_values, actual_values)
+
+knitr::kable(conf_matrix,
+             caption = "Table 4: Confusion Matrix")
+
+
+```
+
+## Result and Conclusion
+
+In this study, our objective was to analyze the neuronal activity of rats in response to visual stimuli and predict the outcome of each trial based on neural activities and stimuli. Our analysis revealed that the neurons in the visual cortex exhibited different responses to stimuli presented on the left and right screens. Furthermore, our results suggested that the left and right stimuli had additive effects on neural responses. We also constructed a predictive model to anticipate the outcome of each trial based on the collected data. The model showed a high degree of specificity but a low level of sensitivity. This indicated that the model performed better at identifying true negatives than true positives. Our use of advanced statistical techniques, such as ANOVA and ICC, allowed us to identify the significant effects of session number on the mean firing rate and capture the variability in the data. However, the study has some limitations such as a small sample size and the use of rats as the experimental subjects. Therefore, further research with larger sample sizes and different animal models is necessary to overcome these limitations. Our study provides valuable insights into the neural mechanisms underlying decision-making and the potential for predicting the outcome of each trial based on neuronal activity and stimuli. These findings may have important implications for understanding and treating neurological disorders that affect decision-making and cognitive function.
+
+## Reference {.unnumbered}
+
+Steinmetz, N.A., Zatka-Haas, P., Carandini, M. et al. Distributed coding of choice, action and engagement across the mouse brain. Nature 576, 266--273 (2019). <https://doi.org/10.1038/s41586-019-1787-x>
