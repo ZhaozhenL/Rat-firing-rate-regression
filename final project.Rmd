@@ -322,23 +322,23 @@ icc <- VarCorr(model_comp_inter_random)$session_number / (VarCorr(model_comp_int
 library(ggplot2)
 library(gridExtra)
 
-# Create a list of all model sessions
+
 model_sessions <- list(model_session_1, model_session_2, model_session_3, model_session_4, model_session_5)
 
 # Create an empty list to store plots
 plots <- list()
 
-# Loop through all model sessions
+
 colors <- rainbow(length(model_sessions))
 for (i in seq_along(model_sessions)) {
   # Get residuals and fitted values
   residuals <- resid(model_sessions[[i]])
   fitted_values <- fitted(model_sessions[[i]])
   
-  # Create a data frame with the residuals and fitted values
+
   df <- data.frame(residuals = residuals, fitted_values = fitted_values)
   
-  # Create a scatterplot with ggplot2, using a different color for each session
+
   p <- ggplot(df, aes(x = fitted_values, y = residuals)) +
     geom_point(alpha = 0.6, size = 1.5, color = colors[i]) +
     geom_smooth(method = "lm", se = FALSE, color = "grey",size=0.5) + 
@@ -351,11 +351,11 @@ for (i in seq_along(model_sessions)) {
         axis.title = element_text(size = 8),
         axis.text = element_text(size = 8))
   
-  # Add the plot to the list of plots
+
   plots[[i]] <- p
 }
 
-# Combine all plots into one
+
 grid.arrange(grobs = plots, nrow = 2)
 
 
@@ -446,7 +446,7 @@ plot(roc,print.thres=T, main="Threshold for Final Model")
 
 library(dplyr)
 
-# Separate the data into two datasets based on feedback_type
+
 data_comp_pos1 <- filter(data_comp, feedback_type == 1)
 data_comp_neg1 <- filter(data_comp, feedback_type == -1)
 
@@ -613,7 +613,7 @@ grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
 
 ```{r BoxHistPieFeedback,echo=FALSE,message=FALSE,warning=FALSE,fig.cap="**Figure 12** The code generates a figure that combines three different types of plots to explore the relationship between the firing rate of neurons and the feedback type received in different experimental sessions.The first plot (A) is a boxplot that shows the distribution of firing rates for the two different feedback types (-1 and 1) in all experimental sessions. The x-axis shows the feedback type, and the y-axis shows the firing rate. The second plot is a bar plot (B) that displays the mean firing rate for each feedback type and experimental session. The x-axis shows the session number, and the y-axis shows the mean firing rate. The bars are colored by feedback type (-1 and 1).The third plot is a pie chart (C) that shows the distribution of feedback types in the entire dataset. The pie chart is also colored by feedback type (-1 and 1)."}
 
-# Load required packages
+
 library(ggplot2)
 library(cowplot)
 
@@ -626,21 +626,21 @@ data_grouped <- data_comp %>%
   group_by(feedback_type, session_number) %>% 
   summarise(mean_firingrate = mean(firingrate))
 
-# Create bar plot
+
 bar_plot <- ggplot(data_grouped, aes(x = session_number, y = mean_firingrate, fill = factor(feedback_type))) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(x = "Session Number", y = "Mean Firing Rate", fill = "Feedback Type") +
   scale_fill_manual(values = c("coral1", "cyan"), labels = c("-1", "1")) +
   theme_classic()
 
-# Calculate the number of observations for each feedback type
+
 feedback_counts <- table(data_comp$feedback_type)
 # Create a data frame with the counts and feedback type labels
 feedback_data <- data.frame(
   feedback_type = names(feedback_counts),
   count = as.numeric(feedback_counts)
 )
-# Create pie chart
+
 pie_chart <- ggplot(feedback_data, aes(x = "", y = count, fill = feedback_type)) +
   geom_bar(stat = "identity", color = "white") +
   coord_polar("y", start = 0) +
@@ -648,10 +648,10 @@ pie_chart <- ggplot(feedback_data, aes(x = "", y = count, fill = feedback_type))
   scale_fill_manual(values = c("coral1", "cyan"), labels = c("-1", "1")) +
   theme_void()
 
-# Combine both plots
+
 combined_plot <- plot_grid(bar_plot, pie_chart, p1,ncol = 2, align = "h", axis = "tb", labels = c("A", "B","C"))
 
-# Show the combined plot
+
 combined_plot
 
 
