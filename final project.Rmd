@@ -33,11 +33,7 @@ If the rat accurately selected the visual stimulus associated with a reward, it 
 
 ## Analysis
 
-```{r}
 
-
-
-```
 
 #### Descriptive Analysis
 
